@@ -1,0 +1,11 @@
+{
+	"configurations": {
+		"app": {
+			"outputLocation": "./build/static",
+			"apiLocation": "./build/server",
+			"appName": "recruitment-calendar-svelte",
+			"resourceGroupName": "recruitmentcalendar",
+			"location": "Central US"
+		}
+	}
+}
