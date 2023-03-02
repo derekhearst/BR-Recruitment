@@ -2,23 +2,37 @@
 	import Modal from '$lib/Modal.svelte'
 	import type { Appointment, DTOAppointment } from '$lib/types'
 	import { updateAppointment, createAppointment } from '$lib/AppointmentsService'
+	import { page } from '$app/stores'
 	import Swal from 'sweetalert2'
 	import type { PageData } from './$types'
+	import { invalidate, invalidateAll } from '$app/navigation'
 	export let data: PageData
 
 	let editingAppointment: Appointment | DTOAppointment | undefined = undefined
 	let modalTitle = 'Edit Appointment'
 	let modalOpen = false
-	async function setStatus(appointment: Appointment, status: string) {
-		console.log('Setting status to ' + status)
-	}
+	let showWeekends = true
 
+	$: filteredDates = data.dates.filter((e) => {
+		if (showWeekends) return true
+		return e.getDay() != 0 && e.getDate() != 5
+	})
+
+	const location = data.locationData.find((e) => e.id === parseInt($page.params.locationId))
+
+	async function setStatus(appointment: Appointment, status: string) {
+		try {
+			await updateAppointment(appointment.id, appointment, data.session?.accessToken ?? '')
+		} catch (e) {
+			Swal.fire('Error', 'Appointment not updated', 'error')
+			console.log(e)
+		}
+	}
 	async function editModal(appointment: Appointment) {
 		modalTitle = 'Edit Appointment'
 		editingAppointment = appointment
 		modalOpen = true
 	}
-
 	async function createModal(date: string) {
 		modalTitle = 'New Appointment'
 		// @ts-expect-error - is is a DTOAppointment
@@ -27,10 +41,10 @@
 		}
 		modalOpen = true
 	}
-
 	async function saveAppointment(e: Event) {
 		const formData = new FormData(e.target as HTMLFormElement)
 		const fullDate = new Date(formData.get('date') + ' : ' + formData.get('time'))
+		console.log(fullDate)
 
 		const appointment: DTOAppointment = {
 			locationId: parseInt(formData.get('location') as string),
@@ -43,10 +57,19 @@
 		const appointmentId = parseInt(formData.get('id') as string)
 
 		if (appointmentId) {
-			console.log('isPut')
+			console.log('isPut', appointment)
 			try {
 				await updateAppointment(appointmentId, appointment, data.session?.accessToken ?? '')
-				Swal.fire('Success', 'Appointment updated', 'success')
+				invalidateAll()
+				Swal.fire({
+					title: 'Appointment updated',
+					icon: 'success',
+					position: 'top-right',
+					showConfirmButton: false,
+					toast: true,
+					timer: 2000,
+					timerProgressBar: true
+				})
 			} catch (e) {
 				Swal.fire('Error', 'Appointment not updated', 'error')
 				console.log(e)
@@ -55,59 +78,75 @@
 			console.log('isPost')
 			try {
 				await createAppointment(appointment, data.session?.accessToken ?? '')
-				Swal.fire('Success', 'Appointment created', 'success')
+				Swal.fire({
+					title: 'Appointment created',
+					icon: 'success',
+					position: 'top-right',
+					showConfirmButton: false,
+					toast: true,
+					timer: 2000,
+					timerProgressBar: true
+				})
 			} catch (e) {
 				Swal.fire('Error', 'Appointment not created', 'error')
 				console.log(e)
 			}
 		}
+		modalOpen = false
 	}
 </script>
 
 <svelte:head>
 	<title>Calendar</title>
 </svelte:head>
-<h1 class="pb-10 text-center text-5xl">Appointments for {data.locationName}</h1>
+
+<h1 class="pb-10 text-center text-5xl">Appointments for {location?.name}</h1>
 
 <div class=" paginationButtons flex justify-evenly pb-4">
-	<button class="styledButton">Previous Week</button>
-	<button class="styledButton">Current Week</button>
-	<button class="styledButton">Next Week</button>
+	<form action="">
+		<input name="date" type="date" value={$page.url.searchParams.get('date')} />
+		<button class="styledButton"> Search</button>
+	</form>
 </div>
-<div class="flex flex-wrap justify-evenly gap-4  px-10">
-	{#each [...data.mappedAppointments] as [date, timeSlots]}
-		<div class="flex-grow rounded-md border-2 p-4 shadow-md">
-			<h1 class="mb-2 text-center text-3xl text-blue-600">{date}</h1>
-			<button on:click={() => createModal(date)} class="w-full rounded-md bg-blue-300 px-2 py-2">New Appointment</button>
-			{#each [...timeSlots] as [timeSlot, appointments]}
-				<div class="">
-					<h2 class="my-4 text-center text-xl">{timeSlot}</h2>
-					{#each [...appointments] as [id, appointment]}
-						<button
-							title="Right click to edit, left click to cycle through statuses"
-							class="w-full rounded-lg border-2 p-2"
-							class:noShow={appointment.status == 'noShow'}
-							class:processed={appointment.status == 'processed'}
-							on:click={() => {
-								if (appointment.status == 'processed') {
-									appointment.status = 'noShow'
-									setStatus(appointment, 'noShow')
-								} else if (appointment.status == 'noShow') {
-									appointment.status = 'pending'
-									setStatus(appointment, 'pending')
-								} else if (appointment.status == 'pending') {
-									appointment.status = 'processed'
-									setStatus(appointment, 'processed')
-								}
-							}}
-							on:contextmenu|preventDefault={() => {
-								editModal(appointment)
-							}}>
-							{appointment.name} - {appointment.status}
-						</button>
-					{/each}
-				</div>
-			{/each}
+
+<div class="flex flex-wrap items-center justify-evenly gap-8 md:items-baseline md:gap-0 ">
+	{#each filteredDates as date}
+		<div class="flex flex-col rounded-md bg-gray-200 p-4 shadow-xl">
+			<h1 class="-mt-2 text-2xl text-blue-600">{date.toLocaleDateString()} - {date.toLocaleDateString([], { weekday: 'long' })}</h1>
+
+			<div class="flex flex-col gap-2">
+				{#each location?.timeSlots ?? [] as timeSlot}
+					<h2 class="border-b-2 border-black text-center text-xl">{timeSlot.start}</h2>
+					<div class="flex flex-col gap-2">
+						{#each data.appointments as appointment}
+							{#if timeSlot.start == new Date(appointment.start).toLocaleTimeString( [], { hour: '2-digit', minute: '2-digit', hour12: true } )}
+								{#if date.toLocaleDateString() == new Date(appointment.start).toLocaleDateString()}
+									<button
+										on:click={() => {
+											if (appointment.status == 'pending') {
+												appointment.status = 'processed'
+												setStatus(appointment, 'processed')
+											} else if (appointment.status == 'processed') {
+												appointment.status = 'noShow'
+												setStatus(appointment, 'noShow')
+											} else if (appointment.status == 'noShow') {
+												appointment.status = 'pending'
+												setStatus(appointment, 'pending')
+											}
+										}}
+										on:contextmenu|preventDefault={() => editModal(appointment)}
+										title="Left click to change status, right click to edit."
+										class:noShow={appointment.status == 'noShow'}
+										class:processed={appointment.status == 'processed'}
+										class="rounded-lg bg-gray-400 py-2 px-4">
+										{appointment.name} - {appointment.status}
+									</button>
+								{/if}
+							{/if}
+						{/each}
+					</div>
+				{/each}
+			</div>
 		</div>
 	{/each}
 </div>
@@ -123,7 +162,7 @@
 			<label for="status">
 				Status:
 				<select name="status" required id="status">
-					<option value="Pending" selected={editingAppointment?.status == 'Pending'}>Pending</option>
+					<option value="pending" selected={editingAppointment?.status == 'pending'}>Pending</option>
 					<option value="processed" selected={editingAppointment?.status == 'processed'}>Processed</option>
 					<option value="noShow" selected={editingAppointment?.status == 'noShow'}>No Show</option>
 				</select>
@@ -140,15 +179,16 @@
 			<label for="time">
 				Time:
 				<select name="time" required id="time">
-					{#each data.allowedTimeSlots as timeSlot}
+					{#each location?.timeSlots ?? [] as timeSlot}
 						<option
-							value={timeSlot}
-							selected={timeSlot ==
+							value={timeSlot.start}
+							selected={timeSlot.start ==
 								new Date(editingAppointment?.start ?? new Date()).toLocaleTimeString([], {
 									hour: '2-digit',
-									minute: '2-digit'
+									minute: '2-digit',
+									hour12: true
 								})}>
-							{timeSlot}
+							{timeSlot.start}
 						</option>
 					{/each}
 				</select>
@@ -156,7 +196,7 @@
 			<label for="location">
 				Location:
 				<select name="location" required id="location">
-					{#each data.allowedLocations as location}
+					{#each data.locationData as location}
 						<option value={location.id} selected={location.id == editingAppointment?.locationId}>
 							{location.name}
 						</option>

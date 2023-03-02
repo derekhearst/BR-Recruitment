@@ -3,19 +3,15 @@
 	import '../app.postcss'
 	import type { PageData } from './$types'
 	import { navigating } from '$app/stores'
+	import { goto } from '$app/navigation'
 	export let data: PageData
 </script>
 
-<nav class="flex w-screen items-center justify-between p-2 text-xl">
-	<div class="flex gap-4">
+<nav class="flex w-screen items-center justify-between border-b-4 border-b-red-800 bg-gray-200 p-2 text-xl">
+	<div class="flex items-center gap-4">
+		<img src="/brlogo.svg" alt="brown and root logo" class="h-20" />
 		<a href="/">Home</a>
-		<div class="flex gap-2">
-			[
-			<a href="/location/1">Boise Calendar</a>
-			|
-			<a href="/location/2">Baton Rouge Calendar</a>
-			]
-		</div>
+		<a href="/location">Calendars</a>
 	</div>
 	<div class="flex items-center gap-4">
 		{#if !data.session}

@@ -24,3 +24,18 @@ export type DTOAppointment = {
 	end: string
 	notes: string
 }
+
+export type locationData = {
+	id: number
+	name: string
+	availableSlots: number
+	isHardCap: boolean
+	timeSlots: [
+		{
+			id: number
+			locationId: number
+			start: string
+			end: string
+		}
+	]
+}
