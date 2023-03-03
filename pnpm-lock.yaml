@@ -9,6 +9,7 @@ specifiers:
   '@typescript-eslint/eslint-plugin': ^5.54.0
   '@typescript-eslint/parser': ^5.54.0
   autoprefixer: ^10.4.13
+  dayjs: ^1.11.7
   eslint: ^8.35.0
   eslint-config-prettier: ^8.6.0
   eslint-plugin-svelte3: ^4.0.0
@@ -32,6 +33,7 @@ specifiers:
 dependencies:
   '@auth/core': 0.5.0
   '@auth/sveltekit': 0.2.2_scqqzeqk5npn2agrwzrlv27qqu
+  dayjs: 1.11.7
   set-cookie-parser: 2.5.1
   sweetalert2: 11.7.3
 
@@ -950,6 +952,10 @@ packages:
     engines: {node: '>=4'}
     hasBin: true
     dev: true
+
+  /dayjs/1.11.7:
+    resolution: {integrity: sha512-+Yw9U6YO5TQohxLcIkrXBeY73WP3ejHWVvx8XCk3gxvQDCTEmS48ZrSZCKciI7Bhl/uCMyxYtE9UqRILmFphkQ==}
+    dev: false
 
   /debug/4.3.4:
     resolution: {integrity: sha512-PRWFHuSU3eDtQJPvnNY7Jcket1j0t5OuOsFzPPzsekD52Zl8qUfFIPEiswXqIvHWGVHOgX+7G/vCNNhehwxfkQ==}

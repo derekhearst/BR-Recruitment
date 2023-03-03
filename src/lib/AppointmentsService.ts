@@ -30,3 +30,15 @@ export async function createAppointment(appointment: DTOAppointment, token: stri
 		throw new Error('Failed to create appointment')
 	}
 }
+
+export async function deleteAppointment(id: string, token: string) {
+	const res = await fetch(`https://brrecruitment.azurewebsites.net/appointments/${id}`, {
+		method: 'DELETE',
+		headers: {
+			Authorization: `Bearer ${token}`
+		}
+	})
+	if (!res.ok) {
+		throw new Error('Failed to delete appointment')
+	}
+}

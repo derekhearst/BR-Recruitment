@@ -1,25 +1,25 @@
 import { error, redirect } from '@sveltejs/kit'
 import type { PageServerLoad } from './$types'
 import type { Appointment, locationData } from '$lib/types'
+import dayJs from 'dayjs'
+import weekday from 'dayjs/plugin/weekday'
 
+dayJs.extend(weekday)
 export const load: PageServerLoad = async ({ fetch, locals, url, params }) => {
 	const session = await locals.getSession()
 	if (!session) {
 		throw redirect(303, '/auth/signin?error=SessionRequired')
 	}
 
-	let searchDate = new Date('3/5/2023')
+	let searchDate = new Date()
 	if (url.searchParams.get('date')) {
 		searchDate = new Date(url.searchParams.get('date') ?? '')
 	}
 
 	const dates: Date[] = []
 	for (let i = 0; i < 7; i++) {
-		const day = new Date(searchDate)
-		day.setDate(day.getDate() - i)
-		dates.push(day)
+		dates.push(dayJs(searchDate).weekday(i).toDate())
 	}
-	dates.reverse()
 
 	const appointmentsRes = await fetch(
 		`https://brrecruitment.azurewebsites.net/locations/${params.locationId}/appointments/${searchDate.toISOString().substring(0, 10)}`,

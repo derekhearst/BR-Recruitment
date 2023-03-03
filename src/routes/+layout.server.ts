@@ -6,7 +6,6 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	if (!session) {
 		throw redirect(303, '/auth/signin?error=SessionRequired')
 	}
-
 	return {
 		session: session
 	}

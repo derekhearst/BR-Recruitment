@@ -1,21 +1,22 @@
 <script lang="ts">
 	import Modal from '$lib/Modal.svelte'
 	import type { Appointment, DTOAppointment } from '$lib/types'
-	import { updateAppointment, createAppointment } from '$lib/AppointmentsService'
+	import { updateAppointment, createAppointment, deleteAppointment } from '$lib/AppointmentsService'
 	import { page } from '$app/stores'
 	import Swal from 'sweetalert2'
 	import type { PageData } from './$types'
-	import { invalidate, invalidateAll } from '$app/navigation'
+	import { goto, invalidate, invalidateAll } from '$app/navigation'
 	export let data: PageData
 
 	let editingAppointment: Appointment | DTOAppointment | undefined = undefined
 	let modalTitle = 'Edit Appointment'
 	let modalOpen = false
-	let showWeekends = true
+	let showWeekends = false
 
 	$: filteredDates = data.dates.filter((e) => {
 		if (showWeekends) return true
-		return e.getDay() != 0 && e.getDate() != 5
+		if (e.getDay() == 0 || e.getDate() == 4) return false
+		return true
 	})
 
 	const location = data.locationData.find((e) => e.id === parseInt($page.params.locationId))
@@ -33,11 +34,11 @@
 		editingAppointment = appointment
 		modalOpen = true
 	}
-	async function createModal(date: string) {
+	async function createModal(date: Date) {
 		modalTitle = 'New Appointment'
 		// @ts-expect-error - is is a DTOAppointment
 		editingAppointment = {
-			start: date
+			start: date.toLocaleDateString()
 		}
 		modalOpen = true
 	}
@@ -94,32 +95,66 @@
 		}
 		modalOpen = false
 	}
+
+	async function removeAppointment(appointmentId: string) {
+		try {
+			deleteAppointment(appointmentId, data.session?.accessToken ?? '')
+			Swal.fire({
+				title: 'Appointment deleted',
+				icon: 'success',
+				position: 'top-right',
+				showConfirmButton: false,
+				toast: true,
+				timer: 2000,
+				timerProgressBar: true
+			})
+			modalOpen = false
+			invalidateAll()
+		} catch (e) {
+			Swal.fire('Error', 'Appointment not deleted', 'error')
+			console.log(e)
+		}
+	}
+
+	$: searchedForWeek = Date.parse($page.url.searchParams.get('date') as string)
+	async function nextWeek() {
+		if (isNaN(searchedForWeek)) {
+			goto('/location/' + $page.params.locationId + '?date=' + new Date().toISOString().split('T')[0])
+		}
+	}
 </script>
 
 <svelte:head>
 	<title>Calendar</title>
 </svelte:head>
 
-<h1 class="pb-10 text-center text-5xl">Appointments for {location?.name}</h1>
-
-<div class=" paginationButtons flex justify-evenly pb-4">
+<div class="paginationButtons flex flex-col items-center justify-evenly gap-2 pb-4">
+	<h1 class="text-center text-5xl">Appointments for {location?.name}</h1>
 	<form action="">
+		<button type="button" class="styledButton">Last Week</button>
 		<input name="date" type="date" value={$page.url.searchParams.get('date')} />
 		<button class="styledButton"> Search</button>
+		<button type="button" class="styledButton">Next Week</button>
 	</form>
+	<div class="flex items-center gap-2">
+		<input type="checkbox" bind:checked={showWeekends} />
+		<label for="showWeekends">Show Weekends</label>
+	</div>
 </div>
 
-<div class="flex flex-wrap items-center justify-evenly gap-8 md:items-baseline md:gap-0 ">
+<div class="flex flex-wrap items-center justify-evenly gap-8 px-4 md:items-baseline">
 	{#each filteredDates as date}
-		<div class="flex flex-col rounded-md bg-gray-200 p-4 shadow-xl">
-			<h1 class="-mt-2 text-2xl text-blue-600">{date.toLocaleDateString()} - {date.toLocaleDateString([], { weekday: 'long' })}</h1>
-
-			<div class="flex flex-col gap-2">
+		<div class="flex flex-1 flex-col ">
+			<div class="flex flex-col-reverse items-center gap-3 rounded-xl p-3">
+				<h1 class="-mt-2 text-2xl">{date.toLocaleDateString()} - {date.toLocaleDateString([], { weekday: 'long' })}</h1>
+				<button on:click={() => createModal(date)} class="self-center rounded-lg bg-red-700 p-1 px-2 text-white ">New Appointment</button>
+			</div>
+			<div class="flex flex-col gap-4">
 				{#each location?.timeSlots ?? [] as timeSlot}
-					<h2 class="border-b-2 border-black text-center text-xl">{timeSlot.start}</h2>
-					<div class="flex flex-col gap-2">
+					<h2 class="border-black text-center text-xl text-black/80">{timeSlot.start}</h2>
+					<div class="flex flex-col gap-1">
 						{#each data.appointments as appointment}
-							{#if timeSlot.start == new Date(appointment.start).toLocaleTimeString( [], { hour: '2-digit', minute: '2-digit', hour12: true } )}
+							{#if new Date(date.toLocaleDateString() + ' ' + timeSlot.start) == new Date(appointment.start)}
 								{#if date.toLocaleDateString() == new Date(appointment.start).toLocaleDateString()}
 									<button
 										on:click={() => {
@@ -138,8 +173,8 @@
 										title="Left click to change status, right click to edit."
 										class:noShow={appointment.status == 'noShow'}
 										class:processed={appointment.status == 'processed'}
-										class="rounded-lg bg-gray-400 py-2 px-4">
-										{appointment.name} - {appointment.status}
+										class="truncate rounded-lg bg-white p-1 shadow-lg">
+										{new Date(appointment.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - {appointment.name}
 									</button>
 								{/if}
 							{/if}
@@ -209,6 +244,9 @@
 			<input type="hidden" name="id" value={editingAppointment?.id ?? ''} />
 			<div class="flex justify-between">
 				<button type="button" class="styledButton" on:click={() => (modalOpen = false)}>Cancel</button>
+				{#if editingAppointment?.id}
+					<button type="button" on:click={() => removeAppointment(editingAppointment?.id ?? '')}>Delete</button>
+				{/if}
 				<button type="submit" class="styledButton bg-blue-500 ">Save</button>
 			</div>
 		</form>
