@@ -158,12 +158,12 @@
 				<h1 class="-mt-2 text-2xl">{date.toLocaleDateString()} - {date.toLocaleDateString([], { weekday: 'long' })}</h1>
 				<button on:click={() => createModal(date)} class="self-center rounded-lg bg-red-700 p-1 px-2 text-white ">New Appointment</button>
 			</div>
-			<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-1">
 				{#each location?.timeSlots ?? [] as timeSlot}
 					<h2 class="border-black text-center text-xl text-black/80">
 						{new Date(timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
 					</h2>
-					<div class="flex flex-col gap-1">
+					<div class="mb-6 flex flex-col gap-1 ">
 						{#each data.appointments as appointment}
 							{#if new Date(timeSlot.start).toLocaleTimeString() == new Date(appointment.start).toLocaleTimeString()}
 								{#if date.toLocaleDateString() == new Date(appointment.start).toLocaleDateString()}
