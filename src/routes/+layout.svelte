@@ -3,7 +3,6 @@
 	import '../app.postcss'
 	import type { PageData } from './$types'
 	import { navigating } from '$app/stores'
-	import { goto } from '$app/navigation'
 	export let data: PageData
 </script>
 
@@ -26,7 +25,7 @@
 </nav>
 
 {#if $navigating}
-	<div class="flex items-center justify-center">
+	<div class="flex items-center justify-center pt-20">
 		<div class="h-32 w-32 animate-spin rounded-full border-t-2 border-b-2 border-gray-900" />
 	</div>
 {:else}

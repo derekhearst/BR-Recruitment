@@ -39,7 +39,7 @@ export const load: PageServerLoad = async ({ fetch, locals, url, params }) => {
 	const appointments: Appointment[] = await appointmentsRes.json()
 
 	appointments.sort((a, b) => {
-		return new Date(a.start).getTime() - new Date(b.start).getTime()
+		return new Date(a.start).getTime() - new Date(b.start).getTime() || b.status.localeCompare(a.status)
 	})
 	const locationsRes = await fetch(`https://brrecruitment.azurewebsites.net/locations/`, {
 		headers: {

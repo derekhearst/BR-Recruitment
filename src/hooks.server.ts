@@ -16,17 +16,23 @@ export const handle = SvelteKitAuth({
 			}
 		})
 	],
+
 	callbacks: {
 		async session({ session, token }) {
 			if (token) {
 				// @ts-expect-error until i can figure out how to retype this, then this stays
 				session.accessToken = token.accessToken
+				// @ts-expect-error until i can figure out how to retype this, then this stays
+				session.user.roles = token.roles
+				// console.log(session)
 			}
 			return session
 		},
-		async jwt({ token, account }) {
+		async jwt({ token, account, profile }) {
 			if (account) {
 				token.accessToken = account.access_token
+				// @ts-expect-error until i can figure out how to retype this, then this stays
+				token.roles = profile.roles
 			}
 			return token
 		}

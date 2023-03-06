@@ -1,6 +1,6 @@
-import type { DTOAppointment } from '$lib/types'
+import type { Appointment } from '$lib/types'
 
-export async function updateAppointment(id: number, appointment: DTOAppointment, token: string) {
+export async function updateAppointment(id: string | number, appointment: Appointment, token: string) {
 	const res = await fetch(`https://brrecruitment.azurewebsites.net/appointments/${id}`, {
 		method: 'PUT',
 		headers: {
@@ -16,7 +16,7 @@ export async function updateAppointment(id: number, appointment: DTOAppointment,
 	return true
 }
 
-export async function createAppointment(appointment: DTOAppointment, token: string) {
+export async function createAppointment(appointment: Appointment, token: string) {
 	const res = await fetch(`https://brrecruitment.azurewebsites.net/appointments/`, {
 		method: 'POST',
 		headers: {
@@ -31,7 +31,7 @@ export async function createAppointment(appointment: DTOAppointment, token: stri
 	}
 }
 
-export async function deleteAppointment(id: string, token: string) {
+export async function deleteAppointment(id: string | number, token: string) {
 	const res = await fetch(`https://brrecruitment.azurewebsites.net/appointments/${id}`, {
 		method: 'DELETE',
 		headers: {

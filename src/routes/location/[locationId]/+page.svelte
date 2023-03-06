@@ -1,34 +1,26 @@
 <script lang="ts">
 	import Modal from '$lib/Modal.svelte'
-	import type { Appointment, DTOAppointment } from '$lib/types'
+	import type { Appointment } from '$lib/types'
 	import { updateAppointment, createAppointment, deleteAppointment } from '$lib/AppointmentsService'
 	import { page } from '$app/stores'
 	import Swal from 'sweetalert2'
 	import type { PageData } from './$types'
-	import { goto, invalidate, invalidateAll } from '$app/navigation'
+	import { goto, invalidateAll } from '$app/navigation'
 	export let data: PageData
 
-	let editingAppointment: Appointment | DTOAppointment | undefined = undefined
+	let editingAppointment: Appointment | undefined = undefined
 	let modalTitle = 'Edit Appointment'
 	let modalOpen = false
 	let showWeekends = false
 
 	$: filteredDates = data.dates.filter((e) => {
 		if (showWeekends) return true
-		if (e.getDay() == 0 || e.getDate() == 4) return false
+		if (e.getDay() == 0 || e.getDay() == 6) return false
 		return true
 	})
 
 	const location = data.locationData.find((e) => e.id === parseInt($page.params.locationId))
 
-	async function setStatus(appointment: Appointment, status: string) {
-		try {
-			await updateAppointment(appointment.id, appointment, data.session?.accessToken ?? '')
-		} catch (e) {
-			Swal.fire('Error', 'Appointment not updated', 'error')
-			console.log(e)
-		}
-	}
 	async function editModal(appointment: Appointment) {
 		modalTitle = 'Edit Appointment'
 		editingAppointment = appointment
@@ -38,22 +30,25 @@
 		modalTitle = 'New Appointment'
 		// @ts-expect-error - is is a DTOAppointment
 		editingAppointment = {
-			start: date.toLocaleDateString()
+			start: date.toLocaleDateString(),
+			locationId: location?.id ?? 1
 		}
 		modalOpen = true
 	}
 	async function saveAppointment(e: Event) {
 		const formData = new FormData(e.target as HTMLFormElement)
-		const fullDate = new Date(formData.get('date') + ' : ' + formData.get('time'))
+		const fullDate = new Date(formData.get('date') + ' : ' + new Date(formData.get('time') as string).toLocaleTimeString())
 		console.log(fullDate)
-
-		const appointment: DTOAppointment = {
+		const appointment: Appointment = {
+			id: undefined,
 			locationId: parseInt(formData.get('location') as string),
 			name: formData.get('name') as string,
 			start: fullDate.toISOString(),
 			end: fullDate.toISOString(),
 			status: formData.get('status') as string,
-			notes: formData.get('notes') as string
+			notes: formData.get('notes') as string,
+			workLocation: formData.get('workLocation') as string,
+			division: formData.get('division') as string
 		}
 		const appointmentId = parseInt(formData.get('id') as string)
 
@@ -88,6 +83,7 @@
 					timer: 2000,
 					timerProgressBar: true
 				})
+				invalidateAll()
 			} catch (e) {
 				Swal.fire('Error', 'Appointment not created', 'error')
 				console.log(e)
@@ -96,9 +92,9 @@
 		modalOpen = false
 	}
 
-	async function removeAppointment(appointmentId: string) {
+	async function removeAppointment(appointmentId: string | number) {
 		try {
-			deleteAppointment(appointmentId, data.session?.accessToken ?? '')
+			await deleteAppointment(appointmentId, data.session?.accessToken ?? '')
 			Swal.fire({
 				title: 'Appointment deleted',
 				icon: 'success',
@@ -119,8 +115,21 @@
 	$: searchedForWeek = Date.parse($page.url.searchParams.get('date') as string)
 	async function nextWeek() {
 		if (isNaN(searchedForWeek)) {
-			goto('/location/' + $page.params.locationId + '?date=' + new Date().toISOString().split('T')[0])
+			const today = new Date()
+			const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7)
+			goto('/location/' + $page.params.locationId + '?date=' + nextWeek.toISOString().split('T')[0])
 		}
+		const nextWeek = new Date(searchedForWeek + 7 * 24 * 60 * 60 * 1000)
+		goto('/location/' + $page.params.locationId + '?date=' + nextWeek.toISOString().split('T')[0])
+	}
+	async function lastWeek() {
+		if (isNaN(searchedForWeek)) {
+			const today = new Date()
+			const lastWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7)
+			goto('/location/' + $page.params.locationId + '?date=' + lastWeek.toISOString().split('T')[0])
+		}
+		const lastWeek = new Date(searchedForWeek - 7 * 24 * 60 * 60 * 1000)
+		goto('/location/' + $page.params.locationId + '?date=' + lastWeek.toISOString().split('T')[0])
 	}
 </script>
 
@@ -131,10 +140,10 @@
 <div class="paginationButtons flex flex-col items-center justify-evenly gap-2 pb-4">
 	<h1 class="text-center text-5xl">Appointments for {location?.name}</h1>
 	<form action="">
-		<button type="button" class="styledButton">Last Week</button>
+		<button type="button" class="styledButton" on:click={lastWeek}>Last Week</button>
 		<input name="date" type="date" value={$page.url.searchParams.get('date')} />
 		<button class="styledButton"> Search</button>
-		<button type="button" class="styledButton">Next Week</button>
+		<button type="button" class="styledButton" on:click={nextWeek}>Next Week</button>
 	</form>
 	<div class="flex items-center gap-2">
 		<input type="checkbox" bind:checked={showWeekends} />
@@ -151,30 +160,19 @@
 			</div>
 			<div class="flex flex-col gap-4">
 				{#each location?.timeSlots ?? [] as timeSlot}
-					<h2 class="border-black text-center text-xl text-black/80">{timeSlot.start}</h2>
+					<h2 class="border-black text-center text-xl text-black/80">
+						{new Date(timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+					</h2>
 					<div class="flex flex-col gap-1">
 						{#each data.appointments as appointment}
-							{#if new Date(date.toLocaleDateString() + ' ' + timeSlot.start) == new Date(appointment.start)}
+							{#if new Date(timeSlot.start).toLocaleTimeString() == new Date(appointment.start).toLocaleTimeString()}
 								{#if date.toLocaleDateString() == new Date(appointment.start).toLocaleDateString()}
 									<button
-										on:click={() => {
-											if (appointment.status == 'pending') {
-												appointment.status = 'processed'
-												setStatus(appointment, 'processed')
-											} else if (appointment.status == 'processed') {
-												appointment.status = 'noShow'
-												setStatus(appointment, 'noShow')
-											} else if (appointment.status == 'noShow') {
-												appointment.status = 'pending'
-												setStatus(appointment, 'pending')
-											}
-										}}
-										on:contextmenu|preventDefault={() => editModal(appointment)}
-										title="Left click to change status, right click to edit."
-										class:noShow={appointment.status == 'noShow'}
+										on:click={() => editModal(appointment)}
+										class:noShow={appointment.status == 'no show'}
 										class:processed={appointment.status == 'processed'}
 										class="truncate rounded-lg bg-white p-1 shadow-lg">
-										{new Date(appointment.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - {appointment.name}
+										{appointment.name}
 									</button>
 								{/if}
 							{/if}
@@ -199,7 +197,7 @@
 				<select name="status" required id="status">
 					<option value="pending" selected={editingAppointment?.status == 'pending'}>Pending</option>
 					<option value="processed" selected={editingAppointment?.status == 'processed'}>Processed</option>
-					<option value="noShow" selected={editingAppointment?.status == 'noShow'}>No Show</option>
+					<option value="no show" selected={editingAppointment?.status == 'no show'}>No Show</option>
 				</select>
 			</label>
 			<label for="date">
@@ -217,23 +215,19 @@
 					{#each location?.timeSlots ?? [] as timeSlot}
 						<option
 							value={timeSlot.start}
-							selected={timeSlot.start ==
-								new Date(editingAppointment?.start ?? new Date()).toLocaleTimeString([], {
-									hour: '2-digit',
-									minute: '2-digit',
-									hour12: true
-								})}>
-							{timeSlot.start}
+							selected={new Date(timeSlot.start).toLocaleTimeString() ==
+								new Date(editingAppointment?.start ?? new Date()).toLocaleTimeString()}>
+							{new Date(timeSlot.start).toLocaleTimeString()}
 						</option>
 					{/each}
 				</select>
 			</label>
 			<label for="location">
-				Location:
+				Office Location:
 				<select name="location" required id="location">
-					{#each data.locationData as location}
-						<option value={location.id} selected={location.id == editingAppointment?.locationId}>
-							{location.name}
+					{#each data.locationData as loc}
+						<option value={loc.id} selected={loc.id == editingAppointment?.locationId}>
+							{loc.name}
 						</option>
 					{/each}
 				</select></label>
@@ -242,10 +236,11 @@
 				<textarea name="notes" id="notes" rows="5" cols="50" value={editingAppointment?.notes ?? ''} />
 			</label>
 			<input type="hidden" name="id" value={editingAppointment?.id ?? ''} />
-			<div class="flex justify-between">
+			<div class="flex items-center justify-between">
 				<button type="button" class="styledButton" on:click={() => (modalOpen = false)}>Cancel</button>
 				{#if editingAppointment?.id}
-					<button type="button" on:click={() => removeAppointment(editingAppointment?.id ?? '')}>Delete</button>
+					<button type="button" on:click={() => removeAppointment(editingAppointment?.id ?? '')} class="text-red-500 underline"
+						>Delete</button>
 				{/if}
 				<button type="submit" class="styledButton bg-blue-500 ">Save</button>
 			</div>
@@ -262,9 +257,18 @@
 	}
 	label {
 		display: flex;
-
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-size: 1rem;
+		font-weight: bold;
+	}
+	input {
+		font-weight: 400;
+	}
+	select {
+		font-weight: 400;
+	}
+	textarea {
+		font-weight: 400;
 	}
 </style>
